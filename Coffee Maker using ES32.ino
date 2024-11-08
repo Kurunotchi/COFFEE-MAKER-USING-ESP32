@@ -6,6 +6,7 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 const int Next = 3;
 const int Select = 4;
+const int Water_pump = 5;
 
 const char* CoffeeVarieties[] = {"Black Coffee", "Chocolate", "Caramel"};
 int selectedIndex = 0;
@@ -26,13 +27,15 @@ void setup() {
   lcd.begin(16, 2);
   pinMode(Next, INPUT_PULLUP);
   pinMode(Select, INPUT_PULLUP);
+  pinMode(Water_pump, OUTPUT);
+
   displaySelection();
   
   Cup.attach(13);
   Black_Coffee.attach(2);
   Caramel_Coffee.attach(5);
   Chocolate.attach(6);
-
+  
   Serial.begin(9600);
 }
 
@@ -81,4 +84,6 @@ void serveCoffee(int index){
       Chocolate.write(0);
       break;
   }
+  digital.write(Water_pump, HIGH);
+  delay(6000);
 }
