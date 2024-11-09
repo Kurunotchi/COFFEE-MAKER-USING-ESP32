@@ -6,8 +6,8 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 const int Next = 3;
 const int Select = 4;
-const int Water_pump = 5;
-const int Heater = 6; //Relay input no.3
+const int Water_pump = 5; //Relay input no.5
+const int Heater = 6; //Relay input no.6
 
 const char* CoffeeVarieties[] = {"Black Coffee", "Chocolate", "Caramel"};
 int selectedIndex = 0;
@@ -41,8 +41,9 @@ void setup() {
 }
 
 void loop() {
+  digitalWrite(Water_pump, LOW);
   delay(5000);
-  digital.write(Heater, HIGH);
+  digitalWrite(Heater, HIGH);
   
   if(digitalRead(Next) == LOW){
     selectedIndex = (selectedIndex + 1) % 3;
