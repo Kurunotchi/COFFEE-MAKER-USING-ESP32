@@ -1,3 +1,21 @@
+/*Missing Components*/
+
+//Color Sensors
+//Ultrasonic Sensors
+//IR Sensors
+//Heater
+//RTC or Real Time Clock
+
+/*Code that need to add*/
+
+//Table Serving
+//Object Detection
+//Line Following 
+//Temperature 
+//Timing
+//IP Address for WiFi Connectivity 
+
+
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <ESP32Servo.h>
