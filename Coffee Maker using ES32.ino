@@ -13,7 +13,7 @@
 //Line Following 
 //Temperature 
 //Timing
-//IP Address for WiFi Connectivity 
+
 
 
 #include <Wire.h>
@@ -23,7 +23,7 @@
 #include <ESPAsyncWebServer.h>
 
 /* LCD Connection */
-LiquidCrystal_I2C lcd(0x27, 16, 2);
+LiquidCrystal_I2C lcd(0x27, 16, 2); // Try 0x27 or 0x3F based on your module
 
 /* Custom LCD Heart Display */
 byte heart[8] = {
@@ -33,6 +33,7 @@ byte heart[8] = {
   0b11111,
   0b01110,
   0b00100,
+  0b00000,
   0b00000
 };
 
@@ -77,8 +78,13 @@ void OpeningScreen();
 void serveCoffee(int index, int table);
 
 void setup() {
-  /* Display */
-  lcd.begin(16, 2);
+  /* Initialize serial communication */
+  Serial.begin(115200);
+  Serial.println("System Initialized");
+
+  /* Initialize LCD */
+  Serial.println("Initializing LCD...");
+  lcd.init();
   lcd.createChar(0, heart);
   lcd.backlight();
 
@@ -96,23 +102,18 @@ void setup() {
   Black_Coffee.attach(16);
   Caramel_Coffee.attach(4);
   Chocolate.attach(2);
-  
-  // Initialize serial communication
-  Serial.begin(115200);
-  Serial.println("System Initialized");
 
-  // Initialize Wi-Fi
+  /* Connect to Wi-Fi */
   Serial.print("Connecting to WiFi...");
   WiFi.begin(ssid, password);
   unsigned long startAttemptTime = millis();
 
-  // Keep retrying until connected
   while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 30000) { // Retry for 30 seconds
     delay(1000);
     Serial.print(".");
   }
 
-  if(WiFi.status() == WL_CONNECTED) {
+  if (WiFi.status() == WL_CONNECTED) {
     Serial.println("Connected!");
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
@@ -191,8 +192,16 @@ void setup() {
         request->send(400, "text/plain", "Invalid coffee type");
         return;
       }
+
+      // Display "Please wait" on the LCD before serving coffee
+      lcd.clear();
+      lcd.print("Processing");
+      lcd.setCursor(0, 1);
+      lcd.print("Please wait");
+
       serveCoffee(selectedIndex, table);
-      String html = "<html><head>";
+
+            String html = "<html><head>";
       html += "<meta http-equiv=\"refresh\" content=\"3; url=/\" />";
       html += "</head><body>";
       html += "<h1>Order received: " + type + " for Table " + String(table) + "</h1>";
@@ -211,23 +220,26 @@ void setup() {
 }
 
 void loop() {
+  DisplaySelection();
   digitalWrite(Water_pump, LOW);
   delay(5000);
-  
+
+  // Check for Next button press
   if (digitalRead(Next) == LOW) {
+    Serial.println("Next button pressed");
     selectedIndex = (selectedIndex + 1) % 3; // Coffee selection loop
     DisplaySelection();
-    Serial.print("Coffee selection changed: ");
-    Serial.println(CoffeeVarieties[selectedIndex]);
-    delay(300);
+    delay(300); // Debounce delay
   }
 
+  // Check for Select button press
   if (digitalRead(Select) == LOW) {
-    Serial.print("Selected coffee: ");
-    Serial.println(CoffeeVarieties[selectedIndex]);
+    Serial.println("Select button pressed");
     serveCoffee(selectedIndex, 0); // Default to table 0 for manual selections
-    delay(300);
+    delay(300); // Debounce delay
   }
+
+  // Reset servo positions
   Cup.write(ServoClosed);
   Black_Coffee.write(ServoClosed);
   Chocolate.write(ServoClosed);
@@ -237,8 +249,8 @@ void loop() {
   digitalWrite(Water_pump, HIGH);
 }
 
-void OpeningScreen(){
-  /* Loading Screen */
+void OpeningScreen() {
+  // Loading Screen
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("    BOSS");
@@ -248,7 +260,8 @@ void OpeningScreen(){
   lcd.clear();
 }
 
-void DisplaySelection(){
+void DisplaySelection() {
+  // Display Coffee Selection
   lcd.clear();
   lcd.print("Select ur Coffee: ");
   lcd.setCursor(0, 1);
@@ -257,8 +270,8 @@ void DisplaySelection(){
   Serial.println(CoffeeVarieties[selectedIndex]);
 }
 
-void serveCoffee(int index, int table){
-  /* Processing Display */
+void serveCoffee(int index, int table) {
+  // Processing Display
   lcd.clear();
   lcd.print("  Processing");
   lcd.setCursor(0, 1);
@@ -266,27 +279,25 @@ void serveCoffee(int index, int table){
 
   Serial.println("Processing coffee...");
 
-  /* Dispensing */
+  // Dispensing
   Cup.write(180);
   delay(400);
   Cup.write(0);
   delay(2000);
 
-  switch (index){
+  switch (index) {
     case 0:
       Black_Coffee.write(BlackCoffeePosition);
       delay(500);
       Black_Coffee.write(ServoClosed);
       Serial.println("Dispensed: Black Coffee");
       break;
-
     case 1:
       Chocolate.write(180);
       delay(500);
       Chocolate.write(0);
       Serial.println("Dispensed: Chocolate");
       break;
-
     case 2:
       Caramel_Coffee.write(CaramelCoffeePosition);
       delay(500);
@@ -294,6 +305,7 @@ void serveCoffee(int index, int table){
       Serial.println("Dispensed: Caramel Coffee");
       break;
   }
+
   digitalWrite(Water_pump, HIGH);
   lcd.clear();
   lcd.print("Your Coffee is");
@@ -301,7 +313,7 @@ void serveCoffee(int index, int table){
   lcd.print("    Ready!");
   delay(6000);
 
-  /* Heart */
+  // Heart
   lcd.clear();
   lcd.print("   Thanks!");
   lcd.setCursor(7, 1);
@@ -312,7 +324,7 @@ void serveCoffee(int index, int table){
   lcd.write(byte(0));
   delay(2000);
 
-  /* Return to Display selection */
+  // Return to Display selection
   DisplaySelection();
 
   delay(1000);
