@@ -21,6 +21,7 @@
 #include <ESP32Servo.h>
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
+//#include <Bounce2.h>
 
 /* LCD Connection */
 LiquidCrystal_I2C lcd(0x27, 16, 2); // Try 0x27 or 0x3F based on your module
@@ -71,6 +72,14 @@ const char* password = "kodicpogi21";
 
 /* Web server */
 AsyncWebServer server(80);
+
+// Debounce variables
+const unsigned long debounceDelay = 50;  // debounce delay in milliseconds
+unsigned long lastDebounceTimeNext = 0;  // the last time the 'Next' button was pressed
+unsigned long lastDebounceTimeSelect = 0;  // the last time the 'Select' button was pressed
+
+int lastButtonStateNext = HIGH;  // previous state of the 'Next' button
+int lastButtonStateSelect = HIGH;  // previous state of the 'Select' button
 
 // Function declarations
 void DisplaySelection();
@@ -201,7 +210,7 @@ void setup() {
 
       serveCoffee(selectedIndex, table);
 
-            String html = "<html><head>";
+      String html = "<html><head>";
       html += "<meta http-equiv=\"refresh\" content=\"3; url=/\" />";
       html += "</head><body>";
       html += "<h1>Order received: " + type + " for Table " + String(table) + "</h1>";
@@ -220,26 +229,29 @@ void setup() {
 }
 
 void loop() {
-  DisplaySelection();
-  digitalWrite(Water_pump, LOW);
-  delay(5000);
-
   // Check for Next button press
-  if (digitalRead(Next) == LOW) {
+  int readingNext = digitalRead(Next);
+  if (readingNext == LOW && lastButtonStateNext == HIGH && (millis() - lastDebounceTimeNext) > debounceDelay) {
     Serial.println("Next button pressed");
     selectedIndex = (selectedIndex + 1) % 3; // Coffee selection loop
     DisplaySelection();
-    delay(300); // Debounce delay
+    lastDebounceTimeNext = millis();  // reset debounce timer
   }
+  lastButtonStateNext = readingNext;
 
   // Check for Select button press
-  if (digitalRead(Select) == LOW) {
+  int readingSelect = digitalRead(Select);
+  if (readingSelect == LOW && lastButtonStateSelect == HIGH && (millis() - lastDebounceTimeSelect) > debounceDelay) {
     Serial.println("Select button pressed");
     serveCoffee(selectedIndex, 0); // Default to table 0 for manual selections
-    delay(300); // Debounce delay
+    lastDebounceTimeSelect = millis();  // reset debounce timer
   }
-
-  // Reset servo positions
+  lastButtonStateSelect = readingSelect;
+  DisplaySelection();
+  digitalWrite(Water_pump, LOW);
+  delay(5000);  // Add a small delay to prevent constant checking and reduce power consumption
+  
+  // Reset servo positions after a small delay
   Cup.write(ServoClosed);
   Black_Coffee.write(ServoClosed);
   Chocolate.write(ServoClosed);
@@ -266,8 +278,6 @@ void DisplaySelection() {
   lcd.print("Select ur Coffee: ");
   lcd.setCursor(0, 1);
   lcd.print(CoffeeVarieties[selectedIndex]);
-  Serial.print("Displayed selection: ");
-  Serial.println(CoffeeVarieties[selectedIndex]);
 }
 
 void serveCoffee(int index, int table) {
