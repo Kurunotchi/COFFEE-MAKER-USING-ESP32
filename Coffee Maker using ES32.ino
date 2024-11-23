@@ -1,27 +1,8 @@
-/*Missing Components*/
-
-//Color Sensors
-//Ultrasonic Sensors
-//IR Sensors
-//Heater
-//RTC or Real Time Clock
-
-/*Code that need to add*/
-
-//Table Serving
-//Object Detection
-//Line Following 
-//Temperature 
-//Timing
-
-
-
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <ESP32Servo.h>
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
-//#include <Bounce2.h>
 
 /* LCD Connection */
 LiquidCrystal_I2C lcd(0x27, 16, 2); // Try 0x27 or 0x3F based on your module
@@ -59,35 +40,27 @@ Servo Black_Coffee;
 Servo Caramel_Coffee;
 Servo Chocolate;
 
-/* Position of Servo */
+/*Position of Servo */
 const int BlackCoffeePosition = 90;
 const int CaramelCoffeePosition = 90;
-const int SugarPosition = 90;
+const int ChocolatePosition = 90;
 const int CupPosition = 90;
 const int ServoClosed = 0;
 
-/* WiFi credentials */
+/*WiFi credentials*/
 const char* ssid = "Kodic";
 const char* password = "kodicpogi21";
 
 /* Web server */
 AsyncWebServer server(80);
 
-// Debounce variables
-const unsigned long debounceDelay = 50;  // debounce delay in milliseconds
-unsigned long lastDebounceTimeNext = 0;  // the last time the 'Next' button was pressed
-unsigned long lastDebounceTimeSelect = 0;  // the last time the 'Select' button was pressed
-
-int lastButtonStateNext = HIGH;  // previous state of the 'Next' button
-int lastButtonStateSelect = HIGH;  // previous state of the 'Select' button
-
-// Function declarations
+/*Function declarations*/
 void DisplaySelection();
 void OpeningScreen();
 void serveCoffee(int index, int table);
 
 void setup() {
-  /* Initialize serial communication */
+  /*Initialize serial communication */
   Serial.begin(115200);
   Serial.println("System Initialized");
 
@@ -226,30 +199,6 @@ void setup() {
 
   DisplaySelection();
   OpeningScreen();
-}
-
-void loop() {
-  // Check for Next button press
-  int readingNext = digitalRead(Next);
-  if (readingNext == LOW && lastButtonStateNext == HIGH && (millis() - lastDebounceTimeNext) > debounceDelay) {
-    Serial.println("Next button pressed");
-    selectedIndex = (selectedIndex + 1) % 3; // Coffee selection loop
-    DisplaySelection();
-    lastDebounceTimeNext = millis();  // reset debounce timer
-  }
-  lastButtonStateNext = readingNext;
-
-  // Check for Select button press
-  int readingSelect = digitalRead(Select);
-  if (readingSelect == LOW && lastButtonStateSelect == HIGH && (millis() - lastDebounceTimeSelect) > debounceDelay) {
-    Serial.println("Select button pressed");
-    serveCoffee(selectedIndex, 0); // Default to table 0 for manual selections
-    lastDebounceTimeSelect = millis();  // reset debounce timer
-  }
-  lastButtonStateSelect = readingSelect;
-  DisplaySelection();
-  digitalWrite(Water_pump, LOW);
-  delay(5000);  // Add a small delay to prevent constant checking and reduce power consumption
   
   // Reset servo positions after a small delay
   Cup.write(ServoClosed);
@@ -261,23 +210,18 @@ void loop() {
   digitalWrite(Water_pump, HIGH);
 }
 
-void OpeningScreen() {
-  // Loading Screen
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("    BOSS");
-  lcd.setCursor(0, 1);
-  lcd.print("   KAPE TAYO");
-  delay(3000);
-  lcd.clear();
-}
+void loop() {
+  // Button handling for Next and Select
+  if (digitalRead(Next) == LOW) { // Next button
+    selectedIndex = (selectedIndex + 1) % 3; // Rotate through coffee options
+    DisplaySelection();
+    delay(200); // debounce delay
+  }
 
-void DisplaySelection() {
-  // Display Coffee Selection
-  lcd.clear();
-  lcd.print("Select ur Coffee: ");
-  lcd.setCursor(0, 1);
-  lcd.print(CoffeeVarieties[selectedIndex]);
+  if (digitalRead(Select) == LOW) { // Select button
+    serveCoffee(selectedIndex, 1); // Change the table number as needed
+    delay(200); // debounce delay
+  }
 }
 
 void serveCoffee(int index, int table) {
@@ -341,4 +285,20 @@ void serveCoffee(int index, int table) {
   digitalWrite(Left_Motor, LOW);
   digitalWrite(Right_Motor, LOW);
   delay(20000);
+}
+void DisplaySelection() {
+  lcd.clear();
+  lcd.print("Select Coffee:");
+  lcd.setCursor(0, 1);
+  lcd.print(CoffeeVarieties[selectedIndex]);
+}
+
+void OpeningScreen() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Smart Brew Coffee");
+  lcd.setCursor(0, 1);
+  lcd.print("Please wait...");
+  delay(2000); // Wait for 2 seconds
+  DisplaySelection();
 }
