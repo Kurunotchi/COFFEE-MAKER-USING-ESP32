@@ -5,7 +5,7 @@
 #include <WebServer.h>
 
 /* LCD Connection */
-LiquidCrystal_I2C lcd(0x27, 16, 2); // Try 0x27 or 0x3F based on your module
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 /* Custom LCD Heart Display */
 byte heart[8] = {
@@ -63,8 +63,16 @@ void serveCoffee(int index, int table);
 void handleRoot();
 void handleOrder();
 
-/* Setup */
 void setup() {
+    /* Reset servo positions and off relay */
+  Cup.write(ServoClosed);
+  Black_Coffee.write(ServoClosed);
+  Chocolate.write(ServoClosed); 
+  Caramel_Coffee.write(ServoClosed);
+  digitalWrite(Left_Forward, HIGH);
+  digitalWrite(Right_Forward, HIGH);
+  digitalWrite(Water_pump, HIGH);
+  
   /* Initialize serial communication */
   Serial.begin(115200);
   Serial.println("System Initialized");
@@ -106,8 +114,6 @@ void setup() {
   server.begin();
   Serial.println("Web server started");
 }
-
-/* Loop */
 void loop() {
   /* Reset servo positions after a small delay */
   Cup.write(ServoClosed);
