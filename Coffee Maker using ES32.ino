@@ -2,7 +2,7 @@
 #include <LiquidCrystal_I2C.h>
 #include <ESP32Servo.h>
 #include <WiFi.h>
-#include <ESPAsyncWebServer.h>
+#include <WebServer.h>
 
 /* LCD Connection */
 LiquidCrystal_I2C lcd(0x27, 16, 2); // Try 0x27 or 0x3F based on your module
@@ -42,27 +42,30 @@ Servo Black_Coffee;
 Servo Caramel_Coffee;
 Servo Chocolate;
 
-/*Position of Servo */
+/* Position of Servo */
 const int BlackCoffeePosition = 90;
 const int CaramelCoffeePosition = 90;
 const int ChocolatePosition = 90;
 const int CupPosition = 90;
 const int ServoClosed = 0;
 
-/*WiFi credentials*/
+/* WiFi credentials */
 const char* ssid = "Kodic";
 const char* password = "kodicpogi21";
 
 /* Web server */
-AsyncWebServer server(80);
+WebServer server(80);
 
-/*Function declarations*/
+/* Function declarations */
 void DisplaySelection();
 void OpeningScreen();
 void serveCoffee(int index, int table);
+void handleRoot();
+void handleOrder();
 
+/* Setup */
 void setup() {
-  /*Initialize serial communication */
+  /* Initialize serial communication */
   Serial.begin(115200);
   Serial.println("System Initialized");
 
@@ -87,124 +90,26 @@ void setup() {
   Caramel_Coffee.attach(4);
   Chocolate.attach(2);
 
-  /* Connect to Wi-Fi */
-  Serial.print("Connecting to WiFi...");
-  WiFi.begin(ssid, password);
-  unsigned long startAttemptTime = millis();
-
-  while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 30000) { // Retry for 30 seconds
-    delay(1000);
-    Serial.print(".");
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("Connected!");
-    Serial.print("IP Address: ");
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("Failed to connect to WiFi. Continuing without network.");
-    return;
-  }
-
-  // Initialize web server
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    String html = "<html><head>";
-    html += "<style>";
-    html += "body { background-color: #D2B48C; font-family: Arial, sans-serif; color: #000000; margin: 0; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }";
-    html += "h1 { color: #000000; font-size: 5em; margin-bottom: 20px; }";
-    html += ".highlight { color: #8B4513; }";
-    html += "form { background-color: #FFFFFF; padding: 100px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }";
-    html += "label { font-size: 2.2em; margin-bottom: 10px; }";
-    html += "select { font-size: 2.2em; padding: 10px; margin-bottom: 20px; width: 400px; }";
-    html += "input[type='submit'] { font-size: 2.2em; color: #FFFFFF; background-color: #8B4513; padding: 10px 20px; margin-top: 10px; width: 400px; cursor: pointer; }";
-    html += ".button { font-size: 2.2em; padding: 10px 20px; margin: 10px; cursor: pointer; width: 400px; }";
-    html += "</style>";
-    html += "</head><body>";
-    html += "<h1>Smart<span class='highlight'>Brew</span></h1>";
-    html += "<form action=\"/table\" method=\"get\">";
-    html += "<label for=\"type\">Select Coffee:</label>";
-    html += "<select name=\"type\">";
-    html += "<option value=\"Black Coffee\">Black Coffee</option>";
-    html += "<option value=\"Chocolate\">Chocolate</option>";
-    html += "<option value=\"Caramel\">Caramel</option>";
-    html += "</select>";
-    html += "<input type=\"submit\" value=\"Next\">";
-    html += "</form>";
-    html += "</body></html>";
-    request->send(200, "text/html", html);
-  });
-
-  server.on("/table", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("type")) {
-      String type = request->getParam("type")->value();
-      String html = "<html><head>";
-      html += "<style>";
-      html += "body { background-color: #D2B48C; font-family: Arial, sans-serif; color: #000000; margin: 0; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }";
-      html += "h1 { color: #000000; font-size: 5em; margin-bottom: 20px; }";
-      html += ".highlight { color: #8B4513; }";
-      html += "h2 { font-size: 3.2em; margin-bottom: 20px; }";
-      html += ".button { font-size: 2.2em; padding: 10px 20px; margin: 10px; cursor: pointer; width: 200px; }";
-      html += "</style>";
-      html += "</head><body>";
-      html += "<h1>Smart<span class='highlight'>Brew</span></h1>";
-      html += "<h2>Select Your Table</h2>";
-      html += "<form action=\"/order\" method=\"get\">";
-      html += "<input type=\"hidden\" name=\"type\" value=\"" + type + "\">";
-      html += "<button class=\"button\" type=\"submit\" name=\"table\" value=\"1\">Table 1</button>";
-      html += "<button class=\"button\" type=\"submit\" name=\"table\" value=\"2\">Table 2</button>";
-      html += "<button class=\"button\" type=\"submit\" name=\"table\" value=\"3\">Table 3</button>";
-      html += "<button class=\"button\" type=\"submit\" name=\"table\" value=\"4\">Table 4</button>";
-      html += "</form>";
-      html += "</body></html>";
-      request->send(200, "text/html", html);
-    } else {
-      request->send(400, "text/plain", "Missing coffee type parameter");
-    }
-  });
-
-  server.on("/order", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("type") && request->hasParam("table")) {
-      String type = request->getParam("type")->value();
-      int table = request->getParam("table")->value().toInt();
-      if (type == "Black Coffee") {
-        selectedIndex = 0;
-      } else if (type == "Chocolate") {
-        selectedIndex = 1;
-      } else if (type == "Caramel") {
-        selectedIndex = 2;
-      } else {
-        request->send(400, "text/plain", "Invalid coffee type");
-        return;
-      }
-
-      // Display "Please wait" on the LCD before serving coffee
-      lcd.clear();
-      lcd.print("Processing");
-      lcd.setCursor(0, 1);
-      lcd.print("Please wait");
-
-      serveCoffee(selectedIndex, table);
-
-      String html = "<html><head>";
-      html += "<meta http-equiv=\"refresh\" content=\"3; url=/\" />";
-      html += "</head><body>";
-      html += "<h1>Order received: " + type + " for Table " + String(table) + "</h1>";
-      html += "<p>Redirecting to home...</p>";
-      html += "</body></html>";
-      request->send(200, "text/html", html);
-    } else {
-      request->send(400, "text/plain", "Missing coffee type or table parameter");
-    }
-  });
-
-  server.begin();
-
-  DisplaySelection();
   OpeningScreen();
+
+  /* Initialize WiFi */
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  /* Initialize web server */
+  server.on("/", handleRoot);
+  server.on("/order", handleOrder);
+  server.begin();
+  Serial.println("Web server started");
 }
 
+/* Loop */
 void loop() {
-    // Reset servo positions after a small delay
+  /* Reset servo positions after a small delay */
   Cup.write(ServoClosed);
   Black_Coffee.write(ServoClosed);
   Chocolate.write(ServoClosed); 
@@ -212,7 +117,8 @@ void loop() {
   digitalWrite(Left_Forward, HIGH);
   digitalWrite(Right_Forward, HIGH);
   digitalWrite(Water_pump, HIGH);
-  // Button handling for Next and Select
+
+  /* Handle button inputs */
   if (digitalRead(Next) == LOW) { // Next button
     selectedIndex = (selectedIndex + 1) % 3; // Rotate through coffee options
     DisplaySelection();
@@ -223,29 +129,34 @@ void loop() {
     serveCoffee(selectedIndex, 1); // Change the table number as needed
     delay(200); // debounce delay
   }
+
+  /* Handle web server */
+  server.handleClient();
 }
 
+/* Serve Coffee */
 void serveCoffee(int index, int table) {
-  // Processing Display
+  /* Processing Display */
   lcd.clear();
   lcd.print("Processing");
   lcd.setCursor(0, 1);
   lcd.print("Please wait");
   for (int i = 0; i < 4; i++) { // Number of dots to display 
-  delay(500); // Delay in milliseconds 
-  lcd.setCursor(12 + i, 1); // Adjust the cursor position for each dot 
-  lcd.print(".");
+    delay(500); // Delay in milliseconds 
+    lcd.setCursor(12 + i, 1); // Adjust the cursor position for each dot 
+    lcd.print(".");
   }
 
   Serial.println("Processing coffee...");
 
-  // Cup Dropper
+  /* Cup Dropper */
   delay(800);
   Cup.write(180);
   delay(400);
   Cup.write(0);
   delay(2000);
 
+  /* Serve selected coffee */
   switch (index) {
     case 0:
       Black_Coffee.write(BlackCoffeePosition);
@@ -274,43 +185,35 @@ void serveCoffee(int index, int table) {
   lcd.print("     Ready!");
   delay(6000);
 
-  // Heart
+  /* Heart */
   lcd.clear();
   lcd.print("     Thanks!");
   for (int i = 0; i < 5; i++) { // Number of blink cycles 
-  lcd.setCursor(7, 1); 
-  lcd.write(byte(0)); 
-  lcd.setCursor(8, 1); 
-  lcd.write(byte(0)); 
-  lcd.setCursor(9, 1); 
-  lcd.write(byte(0)); 
-  delay(500); // Delay in milliseconds // Clear the hearts to create the blink effect 
-  lcd.setCursor(7, 1); 
-  lcd.print(" "); 
-  lcd.setCursor(8, 1); 
-  lcd.print(" "); 
-  lcd.setCursor(9, 1); 
-  lcd.print(" "); 
-  delay(500); // Delay in milliseconds 
+    lcd.setCursor(7, 1); 
+    lcd.write(byte(0)); 
+    lcd.setCursor(8, 1); 
+    lcd.write(byte(0)); 
+    lcd.setCursor(9, 1); 
+    lcd.write(byte(0)); 
+    delay(800); // Delay in milliseconds // Clear the hearts to create the blink effect 
+    lcd.setCursor(7, 1); 
+    lcd.print(" "); 
+    lcd.setCursor(8, 1); 
+    lcd.print(" "); 
+    lcd.setCursor(9, 1); 
+    lcd.print(" "); 
+    delay(800); // Delay in milliseconds 
   }
-  /*lcd.setCursor(7, 1);
-  lcd.write(byte(0));
-  lcd.setCursor(8, 1);
-  lcd.write(byte(0));
-  lcd.setCursor(9, 1);
-  lcd.write(byte(0));*/
-  delay(2000);
-
   delay(1000);
   digitalWrite(Left_Forward, LOW);
   digitalWrite(Right_Forward, LOW);
   delay(20000);
 
-  // Return to Display selection
+  /* Return to Display selection */
   DisplaySelection();
-
-
 }
+
+/* Display Selection */
 void DisplaySelection() {
   lcd.clear();
   lcd.print("Select Coffee:");
@@ -318,6 +221,7 @@ void DisplaySelection() {
   lcd.print(CoffeeVarieties[selectedIndex]);
 }
 
+/* Opening Screen */
 void OpeningScreen() {
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -327,3 +231,100 @@ void OpeningScreen() {
   delay(2000); // Wait for 2 seconds
   DisplaySelection();
 }
+
+/* Handle root page */
+void handleRoot() {
+  String html = "<html><head><style>";
+  html += "body {font-family: 'Roboto', sans-serif; text-align: center; background-color: #B17457; color: #4E342E; height: 100vh; display: flex; justify-content: center; align-items: center;}"; // Centering container
+  html += ".container {margin: auto; padding: 20px; width: 80%; max-width: 600px; background-color: #D7CCC8; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.5);}"; // Added max-width for better control
+  html += ".title {font-size: 80px; margin-top: 20px;}";
+  html += ".smart {color: #000000;}";
+  html += ".brew {color: #8D493A;}"; // Corrected the color code syntax
+  html += "p {color: #000000; margin: 40px 0; font-size: 40px;}";
+  html += "select {font-size: 40px; padding: 5px; border-radius: 5px; width: 100%; max-width: 400px; margin: 0 auto; height: 90px;}"; // Adjusted height
+  html += "option {font-size: 24px;}"; // Adjusted font size of options
+  html += "button {font-size: 40px; margin-top: 20px; padding: 5px; border-radius: 5px; width: 100%; max-width: 400px; background-color: #4E342E; color: white; border: none; display: block; margin: 20px auto; height: 90px;}"; // Adjusted height
+  html += "button:hover {background-color: #3E2925;}";
+  html += "</style></head><body>";
+  html += "<div class='container'>";
+  html += "<div class='title'><span class='smart'>Smart</span><span class='brew'>Brew</span></div>";
+  html += "<p>Select your drink:</p>";
+  html += "<select id='coffeeSelection'>";
+  for (int i = 0; i < 3; i++) {
+    html += "<option value=\"" + String(i) + "\">" + String(CoffeeVarieties[i]) + "</option>";
+  }
+  html += "</select>";
+  html += "<br>";
+  html += "<button onclick='orderCoffee()'>Order</button>";
+  html += "</div>";
+  html += "<script>";
+  html += "function orderCoffee() {";
+  html += "  var selection = document.getElementById('coffeeSelection').value;";
+  html += "  window.location.href = '/order?coffee=' + selection;";
+  html += "}";
+  html += "</script>";
+  html += "</body></html>";
+  server.send(200, "text/html", html);
+}
+
+/* Handle coffee order */
+/*void handleOrder() {
+  String coffeeIndexStr = server.arg("coffee");
+  String tableIndexStr = server.arg("table");
+  int coffeeIndex = coffeeIndexStr.toInt();
+  int tableIndex = tableIndexStr.toInt();
+
+  if (coffeeIndex >= 0 && coffeeIndex < 3) {
+    if (tableIndex == 0) {
+      // Only display table selection after coffee is chosen
+      String html = "<html><body>";
+      html += "<p>Select your table:</p>";
+      for (int i = 1; i <= 4; i++) {
+        html += "<p><a href=\"/order?coffee=" + String(coffeeIndex) + "&table=" + String(i) + "\">Table " + String(i) + "</a></p>";
+      }
+      html += "</body></html>";
+      server.send(200, "text/html", html);
+    } else {
+      serveCoffee(coffeeIndex, tableIndex);
+      server.send(200, "text/html", "<html><body><h1>Your coffee is being prepared for Table " + String(tableIndex) + "!</h1></body></html>");
+    }
+  } else {
+    server.send(400, "text/html", "<html><body><h1>Invalid selection!</h1></body></html>");
+  }
+}*/
+void handleOrder() {
+  String coffeeIndexStr = server.arg("coffee");
+  String tableIndexStr = server.arg("table");
+  int coffeeIndex = coffeeIndexStr.toInt();
+  int tableIndex = tableIndexStr.toInt();
+
+  if (coffeeIndex >= 0 && coffeeIndex < 3) {
+    if (tableIndex == 0) {
+      // Only display table selection after coffee is chosen
+      String html = "<html><head><style>";
+      html += "body {font-family: 'Roboto', sans-serif; text-align: center; background-color: #F8C794; color: #4E342E; height: 100vh; display: flex; justify-content: center; align-items: center;}"; // Centering container
+      html += ".container {margin: auto; padding: 20px; width: 80%; max-width: 600px; background-color: #D7CCC8; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.5);}"; // Added max-width for better control
+      html += ".title {font-size: 50px; margin-top: 20px;}";
+      html += ".smart {color: #000000;}";
+      html += ".brew {color: #B17457;}"; // Corrected the color code syntax
+      html += "p {color: #000000; margin: 20px 0; font-size: 24px;}";
+      html += "a {color: #8D493A; text-decoration: none; font-weight: bold; padding: 10px 20px; background-color: #F8C794; border-radius: 5px; display: inline-block; margin: 10px;}";
+      html += "a:hover {background-color: #D7CCC8;}";
+      html += "</style></head><body>";
+      html += "<div class='container'>";
+      html += "<div class='title'>Select your table:</div>";
+      for (int i = 1; i <= 4; i++) {
+        html += "<p><a href=\"/order?coffee=" + String(coffeeIndex) + "&table=" + String(i) + "\">Table " + String(i) + "</a></p>";
+      }
+      html += "</div>";
+      html += "</body></html>";
+      server.send(200, "text/html", html);
+    } else {
+      serveCoffee(coffeeIndex, tableIndex);
+      server.send(200, "text/html", "<html><body><h1>Your coffee is being prepared for Table " + String(tableIndex) + "!</h1></body></html>");
+    }
+  } else {
+    server.send(400, "text/html", "<html><body><h1>Invalid selection!</h1></body></html>");
+  }
+}
+
