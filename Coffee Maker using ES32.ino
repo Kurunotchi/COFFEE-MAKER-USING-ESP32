@@ -27,8 +27,10 @@ const int Select = 12;
 const int Water_pump = 33;      
 
 /* Wheels */
-const int Left_Motor = 14;
-const int Right_Motor = 27;
+const int Left_Forward = 14;
+const int Left_Reverse = 27;
+const int Right_Forward = 26;
+const int Right_Reverse = 25;
 
 /* Coffee Variety */
 const char* CoffeeVarieties[] = {"Black Coffee", "Chocolate", "Caramel"};
@@ -76,8 +78,8 @@ void setup() {
 
   /* Relay Input pins */
   pinMode(Water_pump, OUTPUT);
-  pinMode(Left_Motor, OUTPUT);
-  pinMode(Right_Motor, OUTPUT);
+  pinMode(Left_Forward, OUTPUT);
+  pinMode(Right_Forward, OUTPUT);
 
   /* Servo */
   Cup.attach(17);
@@ -199,18 +201,17 @@ void setup() {
 
   DisplaySelection();
   OpeningScreen();
-  
-  // Reset servo positions after a small delay
-  Cup.write(ServoClosed);
-  Black_Coffee.write(ServoClosed);
-  Chocolate.write(ServoClosed);
-  Caramel_Coffee.write(ServoClosed);
-  digitalWrite(Left_Motor, HIGH);
-  digitalWrite(Right_Motor, HIGH);
-  digitalWrite(Water_pump, HIGH);
 }
 
 void loop() {
+    // Reset servo positions after a small delay
+  Cup.write(ServoClosed);
+  Black_Coffee.write(ServoClosed);
+  Chocolate.write(ServoClosed); 
+  Caramel_Coffee.write(ServoClosed);
+  digitalWrite(Left_Forward, HIGH);
+  digitalWrite(Right_Forward, HIGH);
+  digitalWrite(Water_pump, HIGH);
   // Button handling for Next and Select
   if (digitalRead(Next) == LOW) { // Next button
     selectedIndex = (selectedIndex + 1) % 3; // Rotate through coffee options
@@ -227,13 +228,19 @@ void loop() {
 void serveCoffee(int index, int table) {
   // Processing Display
   lcd.clear();
-  lcd.print("  Processing");
+  lcd.print("Processing");
   lcd.setCursor(0, 1);
-  lcd.print(" Please wait");
+  lcd.print("Please wait");
+  for (int i = 0; i < 4; i++) { // Number of dots to display 
+  delay(500); // Delay in milliseconds 
+  lcd.setCursor(12 + i, 1); // Adjust the cursor position for each dot 
+  lcd.print(".");
+  }
 
   Serial.println("Processing coffee...");
 
-  // Dispensing
+  // Cup Dropper
+  delay(800);
   Cup.write(180);
   delay(400);
   Cup.write(0);
@@ -247,9 +254,9 @@ void serveCoffee(int index, int table) {
       Serial.println("Dispensed: Black Coffee");
       break;
     case 1:
-      Chocolate.write(180);
+      Chocolate.write(ChocolatePosition);
       delay(500);
-      Chocolate.write(0);
+      Chocolate.write(ServoClosed);
       Serial.println("Dispensed: Chocolate");
       break;
     case 2:
@@ -259,32 +266,50 @@ void serveCoffee(int index, int table) {
       Serial.println("Dispensed: Caramel Coffee");
       break;
   }
-
-  digitalWrite(Water_pump, HIGH);
+  delay(6000);
+  digitalWrite(Water_pump, LOW);
   lcd.clear();
-  lcd.print("Your Coffee is");
+  lcd.print(" Your Coffee is");
   lcd.setCursor(0, 1);
-  lcd.print("    Ready!");
+  lcd.print("     Ready!");
   delay(6000);
 
   // Heart
   lcd.clear();
-  lcd.print("   Thanks!");
-  lcd.setCursor(7, 1);
+  lcd.print("     Thanks!");
+  for (int i = 0; i < 5; i++) { // Number of blink cycles 
+  lcd.setCursor(7, 1); 
+  lcd.write(byte(0)); 
+  lcd.setCursor(8, 1); 
+  lcd.write(byte(0)); 
+  lcd.setCursor(9, 1); 
+  lcd.write(byte(0)); 
+  delay(500); // Delay in milliseconds // Clear the hearts to create the blink effect 
+  lcd.setCursor(7, 1); 
+  lcd.print(" "); 
+  lcd.setCursor(8, 1); 
+  lcd.print(" "); 
+  lcd.setCursor(9, 1); 
+  lcd.print(" "); 
+  delay(500); // Delay in milliseconds 
+  }
+  /*lcd.setCursor(7, 1);
   lcd.write(byte(0));
   lcd.setCursor(8, 1);
   lcd.write(byte(0));
   lcd.setCursor(9, 1);
-  lcd.write(byte(0));
+  lcd.write(byte(0));*/
   delay(2000);
+
+  delay(1000);
+  digitalWrite(Left_Forward, LOW);
+  digitalWrite(Right_Forward, LOW);
+  delay(20000);
 
   // Return to Display selection
   DisplaySelection();
 
-  delay(1000);
-  digitalWrite(Left_Motor, LOW);
-  digitalWrite(Right_Motor, LOW);
-  delay(20000);
+
 }
 void DisplaySelection() {
   lcd.clear();
