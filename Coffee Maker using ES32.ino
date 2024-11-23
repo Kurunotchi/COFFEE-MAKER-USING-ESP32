@@ -302,11 +302,11 @@ void handleOrder() {
     if (tableIndex == 0) {
       // Only display table selection after coffee is chosen
       String html = "<html><head><style>";
-      html += "body {font-family: 'Roboto', sans-serif; text-align: center; background-color: #F8C794; color: #4E342E; height: 100vh; display: flex; justify-content: center; align-items: center;}"; // Centering container
-      html += ".container {margin: auto; padding: 20px; width: 80%; max-width: 600px; background-color: #D7CCC8; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.5);}"; // Added max-width for better control
+      html += "body {font-family: 'Roboto', sans-serif; text-align: center; background-color: #F8C794; color: #4E342E; height: 100vh; display: flex; justify-content: center; align-items: center;}";
+      html += ".container {margin: auto; padding: 20px; width: 80%; max-width: 600px; background-color: #D7CCC8; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.5);}";
       html += ".title {font-size: 50px; margin-top: 20px;}";
       html += ".smart {color: #000000;}";
-      html += ".brew {color: #B17457;}"; // Corrected the color code syntax
+      html += ".brew {color: #B17457;}";
       html += "p {color: #000000; margin: 20px 0; font-size: 24px;}";
       html += "a {color: #8D493A; text-decoration: none; font-weight: bold; padding: 10px 20px; background-color: #F8C794; border-radius: 5px; display: inline-block; margin: 10px;}";
       html += "a:hover {background-color: #D7CCC8;}";
@@ -320,11 +320,24 @@ void handleOrder() {
       html += "</body></html>";
       server.send(200, "text/html", html);
     } else {
+      String html = "<html><head><style>";
+      html += "body {font-family: 'Roboto', sans-serif; text-align: center; background-color: #F8C794; color: #4E342E; height: 100vh; display: flex; justify-content: center; align-items: center;}";
+      html += ".container {margin: auto; padding: 20px; width: 80%; max-width: 600px; background-color: #D7CCC8; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.5); text-align: center;}";
+      html += "h1 {font-size: 50px; margin-top: 20px; color: #4E342E;}";
+      html += ".home-button {font-size: 30px; margin-top: 20px; padding: 10px 20px; border-radius: 5px; background-color: #4E342E; color: white; border: none;}";
+      html += ".home-button:hover {background-color: #3E2925;}";
+      html += "</style></head><body>";
+      html += "<div class='container'>";
+      html += "<h1>Your coffee is being prepared for Table " + String(tableIndex) + "!</h1>";
+      html += "<button class='home-button' onclick='goHome()'>Home</button>";
+      html += "</div>";
+      html += "<script>";
+      html += "function goHome() { window.location.href = '/'; }";
+      html += "</script></body></html>";
       serveCoffee(coffeeIndex, tableIndex);
-      server.send(200, "text/html", "<html><body><h1>Your coffee is being prepared for Table " + String(tableIndex) + "!</h1></body></html>");
+      server.send(200, "text/html", html);
     }
   } else {
     server.send(400, "text/html", "<html><body><h1>Invalid selection!</h1></body></html>");
   }
 }
-
