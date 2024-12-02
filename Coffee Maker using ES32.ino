@@ -18,17 +18,16 @@ byte heart[8] = {
   0b00000,
   0b00000
 };
-
 /* Next and Select Button */
 const int Next = 13;
 const int Select = 12;
 
 /* Relay */
-const int Water_pump = 33;      
+const int Water_pump = 33; 
 
 /* IR Sensors */
-const int IR_Left = 5; // Define the pin for the left IR sensor
-const int IR_Right = 18; // Define the pin for the right IR sensor
+const int IR_Left = 5; 
+const int IR_Right = 18; 
 
 /* Wheels */
 const int Left_Forward = 14;
@@ -45,11 +44,13 @@ Servo Cup;
 Servo Black_Coffee;
 Servo Caramel_Coffee;
 Servo Chocolate;
+Servo Waterpump_Angle;
 
 /* Position of Servo */
 const int BlackCoffeePosition = 90;
 const int CaramelCoffeePosition = 90;
 const int ChocolatePosition = 90;
+const int WaterpumpAngle = 90;
 const int CupPosition = 90;
 const int ServoClosed = 0;
 
@@ -62,6 +63,7 @@ WebServer server(80);
 
 /* Function declarations */
 void DisplaySelection();
+void LineFollowing();
 void OpeningScreen();
 void serveCoffee(int index, int table);
 void handleRoot();
@@ -74,15 +76,15 @@ void setup() {
   Black_Coffee.write(ServoClosed);
   Chocolate.write(ServoClosed); 
   Caramel_Coffee.write(ServoClosed);
+  Waterpump_Angle.write(WaterpumpAngle);
   digitalWrite(Left_Forward, HIGH);
   digitalWrite(Right_Forward, HIGH);
   digitalWrite(Water_pump, HIGH);
 
-  /* Initialize serial communication */
   Serial.begin(115200);
   Serial.println("System Initialized");
 
-  /* Initialize LCD */
+  /* LCD */
   Serial.println("Initializing LCD...");
   lcd.init();
   lcd.createChar(0, heart);
@@ -105,10 +107,11 @@ void setup() {
   Black_Coffee.attach(16);
   Caramel_Coffee.attach(4);
   Chocolate.attach(2);
+  Waterpump_Angle.attach(15);
 
   OpeningScreen();
 
-  /* Initialize WiFi */
+  /* WiFi */
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
@@ -116,7 +119,7 @@ void setup() {
   }
   Serial.println("Connected to WiFi");
 
-  /* Initialize web server */
+  /* web server */
   server.on("/", handleRoot);
   server.on("/order", handleOrder);
   server.begin();
@@ -125,28 +128,29 @@ void setup() {
 
 /* Loop */
 void loop() {
-  /* Reset servo positions after a small delay */
+  /* servo */
   Cup.write(ServoClosed);
   Black_Coffee.write(ServoClosed);
   Chocolate.write(ServoClosed); 
   Caramel_Coffee.write(ServoClosed);
+  Waterpump_Angle.write(WaterpumpAngle);
   digitalWrite(Left_Forward, HIGH);
   digitalWrite(Right_Forward, HIGH);
   digitalWrite(Water_pump, HIGH);
 
-  /* Handle button inputs */
+  /* button inputs */
   if (digitalRead(Next) == LOW) { // Next button
-    selectedIndex = (selectedIndex + 1) % 3; // Rotate through coffee options
+    selectedIndex = (selectedIndex + 1) % 3; 
     DisplaySelection();
-    delay(200); // debounce delay
+    delay(200); 
   }
 
-  if (digitalRead(Select) == LOW) { // Select button
-    serveCoffee(selectedIndex, 1); // Change the table number as needed
-    delay(200); // debounce delay
+  if (digitalRead(Select) == LOW) {
+    serveCoffee(selectedIndex, 1); 
+    delay(200); 
   }
 
-  /* Handle web server */
+  /* web server */
   server.handleClient();
 }
 
@@ -157,9 +161,9 @@ void serveCoffee(int index, int table) {
   lcd.print("Processing");
   lcd.setCursor(0, 1);
   lcd.print("Please wait");
-  for (int i = 0; i < 4; i++) { // Number of dots to display 
-    delay(500); // Delay in milliseconds 
-    lcd.setCursor(12 + i, 1); // Adjust the cursor position for each dot 
+  for (int i = 0; i < 4; i++) {  
+    delay(500); 
+    lcd.setCursor(12 + i, 1); 
     lcd.print(".");
   }
 
@@ -180,9 +184,13 @@ void serveCoffee(int index, int table) {
       Black_Coffee.write(ServoClosed);
       Serial.println("Dispensed: Black Coffee");
       delay(2000);
+      Waterpump_Angle.write(180);
+      delay(1000);
       digitalWrite(Water_pump, LOW);
       delay(6000);
       digitalWrite(Water_pump, HIGH);
+      delay(1000);
+      Waterpump_Angle.write(WaterpumpAngle);
       break;
     case 1:
       Chocolate.write(ChocolatePosition);
@@ -200,9 +208,13 @@ void serveCoffee(int index, int table) {
       Caramel_Coffee.write(ServoClosed);
       Serial.println("Dispensed: Caramel Coffee");
       delay(2000);
+      Waterpump_Angle.write(ServoClosed);
+      delay(1000);
       digitalWrite(Water_pump, LOW);
       delay(6000);
       digitalWrite(Water_pump, HIGH);
+      delay(1000);
+      Waterpump_Angle.write(WaterpumpAngle);
       break;
   }
   lcd.clear();
@@ -221,46 +233,18 @@ void serveCoffee(int index, int table) {
     lcd.write(byte(0)); 
     lcd.setCursor(9, 1); 
     lcd.write(byte(0)); 
-    delay(800); // Delay in milliseconds // Clear the hearts to create the blink effect 
+    delay(800); 
     lcd.setCursor(7, 1); 
     lcd.print(" "); 
     lcd.setCursor(8, 1); 
     lcd.print(" "); 
     lcd.setCursor(9, 1); 
     lcd.print(" "); 
-    delay(800); // Delay in milliseconds 
+    delay(800);  
   }
-  delay(800);
-  /* Line Following Logic */
-  int leftSensorValue = digitalRead(IR_Left);
-  int rightSensorValue = digitalRead(IR_Right);
+  /* Line Following */
+  LineFollowing();
 
-  if (leftSensorValue == LOW && rightSensorValue == HIGH) {
-    // Turn left
-    digitalWrite(Left_Forward, HIGH);
-    digitalWrite(Right_Forward, LOW);
-    digitalWrite(Left_Reverse, LOW);
-    digitalWrite(Right_Reverse, HIGH);
-  } else if (leftSensorValue == HIGH && rightSensorValue == LOW) {
-    // Turn right
-    digitalWrite(Left_Forward, LOW);
-    digitalWrite(Right_Forward, HIGH);
-    digitalWrite(Left_Reverse, HIGH);
-    digitalWrite(Right_Reverse, LOW);
-  } else if (leftSensorValue == LOW && rightSensorValue == LOW) {
-    // Move forward
-    digitalWrite(Left_Forward, HIGH);
-    digitalWrite(Right_Forward, HIGH);
-    digitalWrite(Left_Reverse, LOW);
-    digitalWrite(Right_Reverse, LOW);
-  } else {
-    // Stop
-    digitalWrite(Left_Forward, LOW);
-    digitalWrite(Right_Forward, LOW);
-    digitalWrite(Left_Reverse, LOW);
-    digitalWrite(Right_Reverse, LOW);
-  }
-  delay(20000);
   /* Return to Display selection */
   DisplaySelection();
 }
@@ -272,6 +256,38 @@ void DisplaySelection() {
   lcd.setCursor(0, 1);
   lcd.print(CoffeeVarieties[selectedIndex]);
 }
+void LineFollowing(){
+   /* Line Following */
+  int leftSensorValue = digitalRead(IR_Left);
+  int rightSensorValue = digitalRead(IR_Right);
+
+  if (leftSensorValue == 1 && rightSensorValue == 1) {
+    // Turn left
+    digitalWrite(Left_Forward, HIGH);
+    digitalWrite(Right_Forward, HIGH);
+    digitalWrite(Left_Reverse, LOW);
+    digitalWrite(Right_Reverse, LOW);
+  } else if (leftSensorValue == 1 && rightSensorValue == 0) {
+    // Turn right
+    digitalWrite(Left_Forward, LOW);
+    digitalWrite(Right_Forward, HIGH);
+    digitalWrite(Left_Reverse, HIGH);
+    digitalWrite(Right_Reverse, LOW);
+  } else if (leftSensorValue == 0 && rightSensorValue == 0) {
+    // Move forward
+    digitalWrite(Left_Forward, HIGH);
+    digitalWrite(Right_Forward, LOW);
+    digitalWrite(Left_Reverse, LOW);
+    digitalWrite(Right_Reverse, HIGH);
+  } else {
+    // Stop
+    digitalWrite(Left_Forward, LOW);
+    digitalWrite(Right_Forward, LOW);
+    digitalWrite(Left_Reverse, LOW);
+    digitalWrite(Right_Reverse, LOW);
+  }
+  delay(20000);
+}
 
 /* Opening Screen */
 void OpeningScreen() {
@@ -280,7 +296,7 @@ void OpeningScreen() {
   lcd.print("Smart Brew Coffee");
   lcd.setCursor(0, 1);
   lcd.print("Please wait...");
-  delay(2000); // Wait for 2 seconds
+  delay(2000); 
   DisplaySelection();
 }
 
