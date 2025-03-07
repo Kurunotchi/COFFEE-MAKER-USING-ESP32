@@ -5,6 +5,10 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
+int selectedCoffee = -1;
+int selectedTable = -1;
+bool orderReceived = false;
+
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 byte heart[8] = {
@@ -18,21 +22,16 @@ byte heart[8] = {
   0b00000
 };
 
-const int Next = 13;
-const int Select = 12;
+int Next = 13;
+int Select = 12;
+int Water_pump = 33; 
+int Left_Reverse = 26;
+int Left_Forward = 25;
+int Right_Forward = 14;
+int Right_Reverse = 27;
 
-const int Water_pump = 33; 
-//const int SupplyArduino = 32;
-
-/* IR Sensors */
-//const int IR_Left = 5; 
-//const int IR_Right = 18; 
-
-/* Wheels */
-const int Left_Reverse = 26;
-const int Left_Forward = 25;
-const int Right_Forward = 14;
-const int Right_Reverse = 27;
+  //int IR_1 = 18; // change na lang namin sa analog pin ng ESP32
+  //int IR_2 = 19;
 
 const char* CoffeeVarieties[] = {"Black Coffee", "Chocolate", "Caramel"};
 int selectedIndex = 0;
@@ -53,12 +52,6 @@ const int ServoClosed = 0;
 const char* ssid = "Kodic";
 const char* password = "kodicpogi21";
 
-IPAddress local_IP(192, 168, 23, 222);  
-IPAddress gateway(192, 168, 23, 1);     
-IPAddress subnet(255, 255, 255, 0);     
-IPAddress primaryDNS(8, 8, 8, 8);       
-IPAddress secondaryDNS(8, 8, 4, 4); 
-
 WebServer server(80);
 
 void DisplaySelection();
@@ -67,6 +60,7 @@ void OpeningScreen();
 void serveCoffee(int index, int table);
 void handleRoot();
 void handleOrder();
+void handleStatus();
 
 void setup() { 
   Cup.write(ServoClosed);
@@ -74,34 +68,32 @@ void setup() {
   Chocolate.write(ServoClosed); 
   Caramel_Coffee.write(ServoClosed);
   Waterpump_Angle.write(WaterpumpAngle);
-  digitalWrite(Left_Forward, LOW);
-  digitalWrite(Right_Forward, LOW);
   digitalWrite(Water_pump, HIGH);
-  //digitalWrite(SupplyArduino, HIGH);
+  server.on("/status", handleStatus);
 
   Serial.begin(115200);
 
-    WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS);
-    //WiFi.begin(ssid, password);
-
   Serial.println("System Initialized");
-  
+
   Serial.println("Initializing LCD...");
   lcd.init();
   lcd.createChar(0, heart);
   lcd.backlight();
-  
+
   pinMode(Next, INPUT_PULLUP);
   pinMode(Select, INPUT_PULLUP);
-  
-  //pinMode(IR_Left, INPUT);
-  //pinMode(IR_Right, INPUT);
 
-  /* Relay Input pins */
+  //pinMode(IR_1, INPUT);
+  //pinMode(IR_2, INPUT);
+
+
   pinMode(Water_pump, OUTPUT);
-  //pinMode(SupplyArduino, OUTPUT);
-  pinMode(Left_Forward, OUTPUT);
-  pinMode(Right_Forward, OUTPUT);
+  pinMode( Left_Forward, OUTPUT);
+  pinMode( Right_Forward, OUTPUT);
+  pinMode( Left_Reverse, OUTPUT);
+  pinMode( Right_Reverse, OUTPUT);
+  
+  //servo pins
   Cup.attach(17);
   Black_Coffee.attach(16);
   Caramel_Coffee.attach(4);
@@ -141,6 +133,11 @@ void loop() {
     delay(200); 
   }
   server.handleClient();
+  if (orderReceived) {
+    orderReceived = false;
+    serveCoffee(selectedCoffee, selectedTable);
+    moveToTable(selectedTable);
+  }
 }
 void serveCoffee(int index, int table) {
   lcd.clear();
@@ -168,7 +165,7 @@ void serveCoffee(int index, int table) {
       delay(2000);
       Waterpump_Angle.write(135);
       delay(1000);
-      digitalWrite(Water_pump, LOW);
+      digitalWrite(Water_pump, LOW); 
       delay(8000);
       digitalWrite(Water_pump, HIGH);
       delay(1000);
@@ -235,33 +232,35 @@ void DisplaySelection() {
 void moveToTable(int table) {
   Serial.print("Moving to Table ");
   Serial.println(table);
-
-  if (table == 1) {
-    digitalWrite(Left_Forward, HIGH);
-    digitalWrite(Right_Forward, HIGH);
-    delay(5000); 
-    digitalWrite(Left_Forward, HIGH);
-    digitalWrite(Right_Forward, LOW); 
-    delay(1000); 
-    digitalWrite(Left_Forward, HIGH);
-    digitalWrite(Right_Forward, HIGH);
-    delay(5000);
-  } else if (table == 2) {
-    digitalWrite(Left_Forward, LOW);
-    digitalWrite(Right_Forward, LOW);
-    delay(1000); 
-    digitalWrite(Left_Forward, HIGH);
-    digitalWrite(Right_Forward, HIGH);
-    delay(5000);
-    digitalWrite(Left_Forward, HIGH);
-    digitalWrite(Right_Reverse, HIGH); 
-    delay(1000);
-    digitalWrite(Left_Forward, HIGH);
-    digitalWrite(Right_Forward, HIGH);
-    delay(5000);
-  }
+  delay(500);
+  digitalWrite(Left_Forward, HIGH);
+  digitalWrite(Right_Reverse, HIGH);
+  delay(5000);
+  digitalWrite(Left_Forward, HIGH);
+  digitalWrite(Right_Reverse, LOW);
+  delay(700);
+  digitalWrite(Left_Forward, HIGH);
+  digitalWrite(Right_Reverse, HIGH);
+  delay(5000);
   digitalWrite(Left_Forward, LOW);
-  digitalWrite(Right_Forward, LOW);
+  digitalWrite(Right_Reverse, LOW);
+  delay(10000);
+  //balik
+  digitalWrite(Left_Forward, HIGH);
+  digitalWrite(Right_Reverse, LOW);
+  delay(2000);
+  digitalWrite(Left_Forward, HIGH);
+  digitalWrite(Right_Reverse, HIGH);
+  delay(5000);
+  digitalWrite(Left_Forward, LOW);
+  digitalWrite(Right_Reverse, HIGH);
+  delay(1000);
+  digitalWrite(Left_Forward, HIGH);
+  digitalWrite(Right_Reverse, HIGH);
+  delay(4500);
+  digitalWrite(Left_Forward, LOW);
+  digitalWrite(Right_Reverse, LOW);
+  delay(10000);
 }
 
 /* Opening Screen */
@@ -343,10 +342,22 @@ void handleOrder() {
       html += "</div>";
       html += "<script>";
       html += "function showLoading() { document.getElementById('loading').style.display = 'block'; }";
-      moveToTable(tableIndex);
-      serveCoffee(coffeeIndex, tableIndex);
-      html += "</script></body></html>";
+      selectedCoffee = coffeeIndex;
+      selectedTable = tableIndex;
+      orderReceived = true;
+
+      selectedCoffee = coffeeIndex;
+      selectedTable = tableIndex;
+      orderReceived = true;
+    
+      // Send response to update webpage immediately
+      html += "setTimeout(function() { window.location.href = '/status'; }, 500);"; // Redirect
+      html += "</script></head><body>";
+      html += "<h1>Processing your order...</h1>";
+      html += "</body></html>";
+    
       server.send(200, "text/html", html);
+
     } else {
       String html = "<html><head><style>";
       html += "body {font-family: 'Roboto', sans-serif; text-align: center; color: #4E342E; height: 100vh; display: flex; justify-content: center; align-items: center; ";
@@ -364,10 +375,17 @@ void handleOrder() {
       html += "<script>";
       html += "function goHome() { window.location.href = '/'; }";
       html += "</script></body></html>";
-      //serveCoffee(coffeeIndex, tableIndex);
       server.send(200, "text/html", html);
     }
   } else {
     server.send(400, "text/html", "<html><body><h1>Invalid selection!</h1></body></html>");
   }
+}
+void handleStatus() {
+  String html = "<html><head><script>";
+  html += "setTimeout(function() { window.location.href = '/'; }, 5000);"; // Redirect back home
+  html += "</script></head><body>";
+  html += "<h1>Your coffee is being prepared...</h1>";
+  html += "</body></html>";
+  server.send(200, "text/html", html);
 }
